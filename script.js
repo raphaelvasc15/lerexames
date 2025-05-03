@@ -22,11 +22,16 @@ const ABREVIACOES = {
     "Corpos Cetonicos_urina": "U1_Ceto", "Bilirrubina_urina": "U1_Bili", "Urobilinogenio_urina": "U1_Urob",
     "Nitrito_urina": "U1_Nit", "Leucócitos_urina": "U1_Leu", "Hemácias_urina": "U1_Hem",
     "NT-PROBNP - FRAGMENTO N-TERMINAL DO PEPTÍDEO NATRIURÉTICO TIPO B": "NT-proBNP", // Novo
-    "TROPONINA I DE ALTA SENSIBILIDADE": "Tropo I AS" // Novo
+    "TROPONINA I DE ALTA SENSIBILIDADE": "Tropo I", // Novo
+    "D-DÍMERO": "DIMERO D",
+    "Influenza A_key": "FLU A", // Chave interna para resultado
+    "Influenza B_key": "FLU B", // Chave interna para resultado
+    "SARS-CoV-2_key": "SARS-CoV-2", // Chave interna para resultado (usando ponto final)
 };
-const ORDEM_GERAL = [ "HB", "HT", "ERITRO", "VCM", "HCM", "CHCM", "RDW", "LEUCO", "NEUTRO", "EOS", "BASO", "LINFO", "MONO", "PLA", "UREIA", "CR", "TFGE", "NA", "K", "CL_SERUM", "PCR", "NT-proBNP", "Tropo I AS", "MG", "TGO", "TGP", "FA", "GGT", "BT", "BD", "BI", "AMILASE", "TAP", "AP", "INR", "TTPA", ];
+const ORDEM_GERAL = [ "HB", "HT", "ERITRO", "VCM", "HCM", "CHCM", "RDW", "LEUCO", "NEUTRO", "EOS", "BASO", "LINFO", "MONO", "PLA", "UREIA", "CR", "TFGE", "NA", "K", "CL_SERUM", "PCR", "NT-proBNP", "Tropo I AS", "MG", "TGO", "TGP", "FA", "GGT", "BT", "BD", "BI", "AMILASE", "TAP", "AP", "INR", "TTPA", "DIMERO D", ];
 const ORDEM_GASO = [ "PH", "PCO2", "PO2", "HCO3", "TCO2", "BE", "SAT O2", "HB", "HT", "LACTATO", "GLI", "CA++", "CL_GASO" ];
 const ORDEM_URINA_I = [ "U1_Ph", "U1_Prot", "U1_Gli", "U1_Ceto", "U1_Bili", "U1_Urob", "U1_Nit", "U1_Leu", "U1_Hem" ];
+const ORDEM_PAINEL_VIRAL = ["FLU A", "FLU B", "SARS-CoV-2"];
 const UPPERCASE_ABBRS = new Set([ "VCM", "HCM", "CHCM", "RDW", "TFGE", "PCR", "TGO", "TGP", "BT", "BD", "BI", "TAP", "AP", "INR", "TTPA", "NT-proBNP" ]);
 // CORRIGIDO: Mapa de Casing da Gasometria
 const GASO_CASING_MAP = { "PH": "pH", "PCO2": "pCO2", "PO2": "pO2", "HCO3": "HCO3", "TCO2": "tCO2", "BE": "BE", "CA++": "Ca++", "CL_GASO": "Cl" };
@@ -35,6 +40,13 @@ const GASO_CASING_MAP = { "PH": "pH", "PCO2": "pCO2", "PO2": "pO2", "HCO3": "HCO
 function toTitleCase(str) { if (!str) return ''; return str.toLowerCase().replace(/([^\s-]+)/g, word => word.charAt(0).toUpperCase() + word.slice(1)); }
 function extrairValorSimples(regex, texto, trimResult = true) { const match = texto.match(regex); if (match && match[1] !== undefined && match[1] !== null) { let valor = match[1]; if (trimResult) { valor = valor.trim().replace(/\s+/g, ' '); } if (/^-?[\d]+,[\d]+$/.test(valor.trim())) { valor = valor.replace(',', '.'); } return valor; } return null; }
 function extrairValorComposto(regex, texto) { const match = texto.match(regex); if (match) { const vT = []; for (let i = 1; i < match.length; i++) { if (match[i] !== undefined && match[i] !== null) { let v = match[i].trim(); if (/^-?[\d]+,[\d]+$/.test(v)) { v = v.replace(',', '.'); } vT.push(v); } else { vT.push(null); } } return vT; } return null; }
+function formatarResultadoViral(resultText) {
+    if (!resultText) return "?"; // Indica dado ausente
+    const lowerText = resultText.toLowerCase().trim().replace(/\.$/, ''); // Limpa e põe minúscula
+    if (lowerText.includes("não reagente") || lowerText.includes("negativo")) return "Neg";
+    if (lowerText.includes("reagente") || lowerText.includes("positivo")) return "Pos";
+    return resultText; // Retorna original se não reconhecer
+}
 
 // ATUALIZADO: abreviarResultadoCultura para detalhar positivo
 function abreviarResultadoCultura(textoResultado) {
@@ -101,9 +113,10 @@ function formatarExamesJS(textoCompleto) {
         resGeral["AMILASE"] = extrairValorSimples(/AMILASE\s*\n.*?Resultado:\s*(\d[\d.,]*)\s+U\/L/is, textoCompleto);
         // Adicionada extração Tropo e BNP
         resGeral["NT-proBNP"] = extrairValorSimples(/NT-PROBNP.*?Resultado:\s*([><]?\s*\d[\d.,]*)\s+pg\/mL/is, textoCompleto);
-        resGeral["Tropo I AS"] = extrairValorSimples(/TROPONINA I DE ALTA SENSIBILIDADE.*?Resultado:\s*(<?\s*\d[\d.,]*)\s+ng\/L/is, textoCompleto);
+        resGeral["Tropo I"] = extrairValorSimples(/TROPONINA I DE ALTA SENSIBILIDADE.*?Resultado:\s*(<?\s*\d[\d.,]*)\s+ng\/L/is, textoCompleto);
         const bBM = textoCompleto.match(/BILIRRUBINA TOTAIS E FRAÇÕES.*?Material:/is); if (bBM) { const bB = bBM[0]; resGeral["BT"] = extrairValorSimples(/Bilirrubina Total\s*:\s*(\d[\d.,]*)\s+mg\/dL/is, bB); resGeral["BD"] = extrairValorSimples(/Bilirrubina Direta\s*:\s*(\d[\d.,]*)\s+mg\/dL/is, bB); resGeral["BI"] = extrairValorSimples(/Bilirrubina Indireta\s*:\s*(\d[\d.,]*)\s+mg\/dL/is, bB); }
         const bCM = textoCompleto.match(/COAGULOGRAMA COMPLETO.*?(?:Material:|Liberação:|Médico Responsável|-----)/is); if (bCM) { const bC = bCM[0]; const tV = extrairValorSimples(/Tempo Protrombina\s*:\s*(\d[\d.,]*)\s*segundos/is, bC); if(tV)resGeral["TAP"]=`${tV}s`; const aV = extrairValorSimples(/Atividade de Protrombina\s*:\s*(\d[\d.,]*)\s*%/is, bC); if(aV)resGeral["AP"]=`${aV}%`; resGeral["INR"] = extrairValorSimples(/INR\s*:\s*(\d[\d.,]*)/is, bC); const ttV = extrairValorSimples(/Tempo Tromboplastina Parcial Ativada\s*:\s*(\d[\d.,]*)\s*segundos/is, bC); if(ttV)resGeral["TTPA"]=`${ttV}s`; }
+        resGeral["DIMERO D"] = extrairValorSimples(/D-D[ÍI]MERO\s*\n.*?Resultado:\s*(\d[\d.,]*)\s+ug\/mL/is, textoCompleto);
 
         // Gasometria
         const bGM = textoCompleto.match(/GASOMETRIA\s+(VENOSA|ARTERIAL).*?(?:Liberação:|Médico Responsável|Notas:|Material:)/is); if (bGM) { const tG=bGM[1].toUpperCase(); const bG=bGM[0]; let rGT = null; if(tG==="VENOSA")rGT=resGasoV; else if(tG==="ARTERIAL")rGT=resGasoA; if(rGT){ rGT["PH"]=extrairValorSimples(/pH:\s*(\d[\d.,]*)/is,bG); rGT["PCO2"]=extrairValorSimples(/pCO2:\s*(\d[\d.,]*)\s+mmHg/is,bG); rGT["PO2"]=extrairValorSimples(/pO2:\s*(\d[\d.,]*)\s+mmHg/is,bG); rGT["HCO3"]=extrairValorSimples(/HCO3:\s*(\d[\d.,]*)\s+mmol\/L/is,bG); rGT["TCO2"]=extrairValorSimples(/tCO2:\s*(\d[\d.,]*)\s+mmol\/L/is,bG); rGT["BE"]=extrairValorSimples(/BE:\s*([-+]?\d[\d.,]*)\s+mmol\/L/is,bG); rGT["SAT O2"]=extrairValorSimples(/Saturação O2:\s*(\d[\d.,]*)\s+%/is,bG); rGT["HB"]=extrairValorSimples(/Hemoglobina:\s*(\d[\d.,]*)\s+g\/dL/is,bG); rGT["HT"]=extrairValorSimples(/Hematócrito:\s*(\d[\d.,]*)\s+%/is,bG); rGT["LACTATO"]=extrairValorSimples(/Lactato:\s*(\d[\d.,]*)\s+mmol\/L/is,bG); rGT["GLI"]=extrairValorSimples(/Glicose:\s*(\d[\d.,]*)\s+mg\/dL/is,bG); rGT["CA++"]=extrairValorSimples(/Cácio Iônico:\s*(\d[\d.,]*)\s+mmol\/L/is,bG); rGT["CL_GASO"]=extrairValorSimples(/Cloro:\s*(\d[\d.,]*)\s+mEq\/\s*L/is,bG); }}
@@ -114,6 +127,19 @@ function formatarExamesJS(textoCompleto) {
         // Culturas (Regex urocultura CORRIGIDO + Abreviação Atualizada)
         const ucRegex = /(CULTURA DE URINA)\s*\n.*?Resultado:([\s\S]*?)(?:TESTE DE SENSIBILIDADE|Valor de referência|Método|Liberação:)/gis; for (const m of textoCompleto.matchAll(ucRegex)) { const tE="Urocultura"; const rT=m[2].trim(); const rA=abreviarResultadoCultura(rT); if (!resCulturas.some(p=>p[0]===tE&&p[1]===rA)) resCulturas.push([tE,rA]); }
         const hemoR = /(HEMOCULTURA (AERÓBICA|ANAERÓBICA))\s*(?:-\s*(\d+)\s*AMOSTRA)?\s*\n.*?Resultado:([^\r\n]+)/gis; for (const m of textoCompleto.matchAll(hemoR)) { const tB=m[2].toUpperCase(); const aN=m[3]; const rT=m[4]; const rA=abreviarResultadoCultura(rT); let tE=tB==="AERÓBICA"?"AERÓBIA":tB==="ANAERÓBICA"?"ANAERÓBIA":""; if(aN)tE+=`(${aN})`; if (tE&&!resCulturas.some(p=>p[0]===tE&&p[1]===rA)) resCulturas.push([tE,rA]); }
+
+        // --- Extração Painel Viral Rápido (NOVO) ---
+        const blocoViralMatch = textoCompleto.match(/PESQUISA RÁPIDA PARA INFLUENZA A,.*?Material:/is);
+        if (blocoViralMatch) {
+        const blocoViral = blocoViralMatch[0];
+        // Criar objeto para guardar resultados virais (se necessário fora daqui, adicione no início da função principal)
+        if (!parsedResults) parsedResults = {}; // Garante que parsedResults exista se ainda for null
+        if (!parsedResults.resPainelViral) parsedResults.resPainelViral = {}; // Cria se não existir
+
+    parsedResults.resPainelViral["FLU A"] = extrairValorSimples(/Influenza A:\s*([^\r\n]+)/is, blocoViral);
+    parsedResults.resPainelViral["FLU B"] = extrairValorSimples(/Influenza B:\s*([^\r\n]+)/is, blocoViral);
+    parsedResults.resPainelViral["SARS-CoV-2"] = extrairValorSimples(/SARS-CoV-2\.:\s*([^\r\n]+)/is, blocoViral); // Ponto literal escapado
+}
 
         // --- Montagem da Saída ---
         let outputFinal = ["# LABORATÓRIOS:"]; let algumResultadoAdicionado = false;
@@ -137,6 +163,28 @@ function formatarExamesJS(textoCompleto) {
         let lUI = []; const mNU = { "U1_Ph": "pH", "U1_Prot": "Prot", "U1_Gli": "Gli", "U1_Ceto": "Ceto", "U1_Bili": "Bili", "U1_Urob": "Urob", "U1_Nit": "Nit", "U1_Leu": "Leu", "U1_Hem": "Hem" }; for (const aI of ORDEM_URINA_I) { const rR = resUrinaI[aI]; const fR = formatarResultadoUrina(aI, rR); if (fR !== null) { const nE = mNU[aI] || aI; lUI.push(`${nE} ${fR}`); } } if (lUI.length > 0) { if (algumResultadoAdicionado && outputFinal[outputFinal.length - 1] !== "") outputFinal.push(""); outputFinal.push(`${dataColetaPrincipal} - URINA I: ${lUI.join(', ')}`); algumResultadoAdicionado = true; }
          // Linha Culturas
         if (resCulturas.length > 0) { let lCI = []; function gCSK(cT){ const tC=cT[0]; let bO=9; if(tC.includes("AERÓBIA"))bO=1; else if(tC.includes("ANAERÓBIA"))bO=2; else if(tC.includes("Urocultura"))bO=3; const mN=tC.match(/\((\d+)\)/); const aN=mN?parseInt(mN[1]):0; return bO*100+aN; } resCulturas.sort((a,b)=>gCSK(a)-gCSK(b)); for (const [tA, rA] of resCulturas) { const dT = UPPERCASE_ABBRS.has(tA) ? tA : toTitleCase(tA); lCI.push(`${dT}: ${rA}`); } if (lCI.length > 0) { if (algumResultadoAdicionado && outputFinal[outputFinal.length - 1] !== "") outputFinal.push(""); outputFinal.push(`${dataColetaPrincipal} - CULTURAS: ${lCI.join(' // ')}`); algumResultadoAdicionado = true; } }
+        // Linha Painel Viral (NOVO)
+        // Verifica se o objeto existe dentro de parsedResults
+        if (parsedResults && parsedResults.resPainelViral && Object.keys(parsedResults.resPainelViral).length > 0) {
+            let linhaViralItens = [];
+            // Mapeamento para nomes curtos na exibição
+            const mapaNomesViral = { "FLU A": "Flu A", "FLU B": "Flu B", "SARS-CoV-2": "SARS-CoV-2" };
+
+            for (const abbrInterno of ORDEM_PAINEL_VIRAL) {
+                const rawResult = parsedResults.resPainelViral[abbrInterno];
+                const formattedResult = formatarResultadoViral(rawResult); // Formata Neg/Pos
+
+                if (formattedResult !== null && formattedResult !== undefined) {
+                    const nomeExibicao = mapaNomesViral[abbrInterno] || abbrInterno;
+                    linhaViralItens.push(`${nomeExibicao}: ${formattedResult}`);
+                }
+            }
+            if (linhaViralItens.length > 0) {
+                if (algumResultadoAdicionado && outputFinal[outputFinal.length - 1] !== "") outputFinal.push(""); // Linha em branco antes
+                outputFinal.push(`${dataColetaPrincipal} - PAINEL VIRAL: ${linhaViralItens.join(' // ')}`);
+                algumResultadoAdicionado = true;
+            }
+        }
 
         // Retorno Final
         const results = { resGeral, resGasoV, resGasoA, resUrinaI, resCulturas }; // Guarda todos os resultados parseados
@@ -217,47 +265,37 @@ function updateDisplay(){let tTD=lastRawResult; if(uppercaseToggle.checked&&last
 // Listener do Botão Principal (MODIFICADO para lidar com retorno de objeto e habilitar/desabilitar botão gaso)
 processButton.addEventListener('click',()=>{
     const texto = inputText.value.trim();
-    if (!texto){lastRawResult='';parsedResults=null;outputArea.textContent='Por favor, cole o texto do exame na área acima.';outputArea.classList.add('error-message');outputArea.classList.remove('loading-message');gasoButton.disabled=true;gasoOutputArea.style.display='none';return;}
+    if (!texto){ /* ... (código erro campo vazio) ...*/ return;}
     outputArea.classList.remove('error-message','loading-message');gasoOutputArea.style.display='none';
     outputArea.textContent = ''; // Limpa output principal
 
+    // Reseta parsedResults antes de cada execução
+    parsedResults = null;
+
     const formatResult = formatarExamesJS(texto); // Chama a função JS
 
-    if (typeof formatResult === 'string' && formatResult.startsWith("Erro:")) { // Verifica se retornou string de erro
-        lastRawResult = ''; parsedResults = null;
+    if (typeof formatResult === 'string' && formatResult.startsWith("Erro:")) {
+        lastRawResult = ''; // parsedResults já é null
         outputArea.textContent = formatResult;
         outputArea.classList.add('error-message');
         gasoButton.disabled = true; gasoButton.style.backgroundColor = '#6c757d';
-    } else if (typeof formatResult === 'object' && formatResult.formattedString !== undefined && formatResult.results !== undefined) { // Verifica se retornou o objeto esperado
+    } else if (typeof formatResult === 'object' && formatResult.formattedString !== undefined && formatResult.results !== undefined) {
         lastRawResult = formatResult.formattedString;
-        parsedResults = formatResult.results; // Guarda resultados parseados globalmente
-        updateDisplay(); // Atualiza área principal
+        parsedResults = formatResult.results; // Guarda resultados parseados AQUI
+        updateDisplay();
 
-        // Habilita/desabilita botão de interpretar gaso (Verifica Arterial OU Venosa)
-        const gasoAValida = parsedResults && parsedResults.resGasoA &&
-                           !isNaN(parseFloat(parsedResults.resGasoA["PH"]?.replace(',', '.'))) &&
-                           !isNaN(parseFloat(parsedResults.resGasoA["PCO2"]?.replace(',', '.'))) &&
-                           !isNaN(parseFloat(parsedResults.resGasoA["HCO3"]?.replace(',', '.')));
-        const gasoVValida = parsedResults && parsedResults.resGasoV &&
-                           !isNaN(parseFloat(parsedResults.resGasoV["PH"]?.replace(',', '.'))) &&
-                           !isNaN(parseFloat(parsedResults.resGasoV["PCO2"]?.replace(',', '.'))) &&
-                           !isNaN(parseFloat(parsedResults.resGasoV["HCO3"]?.replace(',', '.')));
+        // Habilita/desabilita botão de interpretar gaso (usa parsedResults)
+        const hasValidGaso = parsedResults && parsedResults.resGasoA && /* ... (restante da verificação) ... */
+                             parsedResults.resGasoA["PH"] !== undefined && !isNaN(parseFloat(parsedResults.resGasoA["PH"]?.replace(',', '.'))) &&
+                             parsedResults.resGasoA["PCO2"] !== undefined && !isNaN(parseFloat(parsedResults.resGasoA["PCO2"]?.replace(',', '.'))) &&
+                             parsedResults.resGasoA["HCO3"] !== undefined && !isNaN(parseFloat(parsedResults.resGasoA["HCO3"]?.replace(',', '.')));
 
-        if(gasoAValida || gasoVValida) { // Habilita se QUALQUER uma for válida
-             gasoButton.disabled = false;
-             gasoButton.style.backgroundColor = '#17a2b8'; // Cor habilitado
-             // Opcional: Ajustar texto do botão se quiser indicar qual será interpretada (ex: prioriza arterial)
-             // if(gasoAValida) { gasoButton.textContent = 'Interpretar Gaso Arterial'; }
-             // else { gasoButton.textContent = 'Interpretar Gaso Venosa'; }
-        } else {
-             gasoButton.disabled = true;
-             gasoButton.style.backgroundColor = '#6c757d'; // Cor desabilitado
-             // gasoButton.textContent = 'Interpretar Gasometria'; // Texto padrão
-        }
+        if(hasValidGaso) { /* ... (habilita botão) ... */ gasoButton.disabled = false; gasoButton.style.backgroundColor = '#17a2b8'; }
+        else { /* ... (desabilita botão) ... */ gasoButton.disabled = true; gasoButton.style.backgroundColor = '#6c757d'; }
     } else {
-        // Caso inesperado
+        // Erro inesperado
         console.error("Resultado inesperado de formatarExamesJS:", formatResult);
-        lastRawResult = ''; parsedResults = null;
+        lastRawResult = ''; parsedResults = null; // Garante que está null
         outputArea.textContent = "Erro: Falha inesperada ao formatar os exames.";
         outputArea.classList.add('error-message');
         gasoButton.disabled = true; gasoButton.style.backgroundColor = '#6c757d';
