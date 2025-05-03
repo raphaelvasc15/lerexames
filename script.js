@@ -271,8 +271,14 @@ pasteButton.addEventListener('click',async()=>{if(!navigator.clipboard||!navigat
 
 // --- Event Listener para o botão Interpretar Gasometria ---
 gasoButton.addEventListener('click', () => {
-    const interpretation = interpretarGasometria();
-    gasoOutputArea.textContent = interpretation;
+    const interpretation = interpretarGasometria(); // Chama a função
+
+    // --- DEBUGGING ---
+    // console.log("DEBUG: String retornada por interpretarGasometria():", interpretation); // <<< REMOVER ESTA LINHA
+    // alert("DEBUG: Resultado da Interpretação:\n\n" + interpretation); // <<< REMOVER ESTA LINHA
+    // --- FIM DEBUGGING ---
+
+    gasoOutputArea.textContent = interpretation; // Atribui ao output
     gasoOutputArea.style.display = 'block'; // Mostra a área
     gasoOutputArea.classList.remove('error-message'); // Limpa erro anterior da área de gaso
     if (interpretation.startsWith("Erro:")) {
