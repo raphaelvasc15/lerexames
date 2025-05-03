@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formatador de Exames (JS)</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Formatador de Exames (Versão JavaScript)</h1>
+        <p>Cole o texto copiado do PDF na caixa abaixo ou clique em "Transferir":</p>
+        <textarea id="inputText" placeholder="Cole o texto do exame aqui..."></textarea>
+        <button id="pasteButton">Transferir Exames (Colar)</button>
+        <button id="processButton">Formatar Exames</button>
+        <div class="options">
+            <input type="checkbox" id="uppercaseToggle" name="uppercaseToggle">
+            <label for="uppercaseToggle">Exibir em CAIXA ALTA</label>
+        </div>
+
+        <h2>Resultado Formatado:</h2>
+        <div id="outputArea" aria-live="polite">
+            Aguardando entrada...
+        </div>
+
+        <div class="gaso-interpret-section">
+             <button id="gasoButton" disabled>Interpretar Gasometria Arterial</button>
+             <div id="gasoOutputArea">
+                </div>
+        </div>
+        <div class="action-buttons">
+            <button id="copyButton">Copiar Resultado</button>
+            <button id="clearButton">Limpar Caixas</button>
+        </div>
+    </div> <script src="js/script.js"></script>
+</body>
+</html>
