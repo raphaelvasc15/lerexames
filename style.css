@@ -163,4 +163,17 @@ button:disabled {
     color: #6c757d;
     font-style: italic;
 }
+/* Estilos para o Rodapé */
+footer {
+    text-align: center;
+    margin-top: 40px; /* Espaço acima do rodapé */
+    padding: 20px 10px; /* Espaçamento interno */
+    font-size: 0.85em; /* Tamanho de fonte menor */
+    color: #6c757d; /* Cor cinza */
+    border-top: 1px solid #dee2e6; /* Linha separadora sutil */
+}
+
+footer p {
+    margin: 0; /* Remove margem padrão do parágrafo */
+}
 /* --- Fim dos Estilos --- */
